@@ -32,25 +32,32 @@ class ProductViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class CartViewSet(viewsets.ModelViewSet):
-    serializer_class = CartSerializer
+class CartViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Cart.objects.filter(user=self.request.user)
 
     def get_object(self):
         cart, created = Cart.objects.get_or_create(user=self.request.user)
         return cart
 
+    @action(detail=False, methods=['get'])
+    def view_cart(self, request):
+        if request.user.is_anonymous:
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
+        cart = self.get_object()
+        serializer = CartSerializer(cart)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['post'])
     def add_item(self, request):
+        if request.user.is_anonymous:
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
         cart = self.get_object()
         serializer = CartItemSerializer(data=request.data)
         if serializer.is_valid():
             product = serializer.validated_data['product']
             quantity = serializer.validated_data['quantity']
-            cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+            cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product,
+                                                                defaults={'quantity': quantity})
             if not created:
                 cart_item.quantity += quantity
             cart_item.save()
@@ -59,6 +66,8 @@ class CartViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def update_item(self, request):
+        if request.user.is_anonymous:
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
         cart = self.get_object()
         serializer = CartItemSerializer(data=request.data)
         if serializer.is_valid():
@@ -75,10 +84,12 @@ class CartViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def remove_item(self, request):
+        if request.user.is_anonymous:
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
         cart = self.get_object()
         product_id = request.data.get('product_id')
         if not product_id:
-            return Response({'error': 'Товара нет в корзине'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Не указан ID продукта'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             product = Product.objects.get(id=product_id)
             cart_item = CartItem.objects.get(cart=cart, product=product)
@@ -89,6 +100,8 @@ class CartViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def clear_cart(self, request):
+        if request.user.is_anonymous:
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
         cart = self.get_object()
         cart.items.all().delete()
         return Response(CartSerializer(cart).data, status=status.HTTP_200_OK)

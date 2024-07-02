@@ -3,9 +3,18 @@ from .models import Category, Subcategory, Product, Cart, CartItem
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    category = serializers.SerializerMethodField()
+    subcategory = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = ['name', 'slug', 'subcategory', 'price', 'image_small', 'image_medium', 'image_large']
+        fields = ['name', 'slug', 'category', 'subcategory', 'price', 'image_small', 'image_medium', 'image_large']
+
+    def get_category(self, obj):
+        return obj.subcategory.category.name
+
+    def get_subcategory(self, obj):
+        return obj.subcategory.name
 
 
 class SubcategorySerializer(serializers.ModelSerializer):
@@ -16,8 +25,14 @@ class SubcategorySerializer(serializers.ModelSerializer):
         fields = ['name', 'slug', 'category', 'image', 'products']
 
 
+class SubcategorySimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subcategory
+        fields = ['name', 'slug', 'category', 'image']
+
+
 class CategorySerializer(serializers.ModelSerializer):
-    subcategories = SubcategorySerializer(many=True, read_only=True)
+    subcategories = SubcategorySimpleSerializer(many=True, read_only=True)
 
     class Meta:
         model = Category
